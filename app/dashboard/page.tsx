@@ -1,0 +1,53 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowRight, ArrowUpRight, BookOpenCheck, CalendarClock, CheckCircle2, CircleAlert, ClipboardCheck, FileText, RotateCcw, Sparkles, Target } from "lucide-react";
+import { PageHeader, EligibilityBadge, formatDate, formatMoney, daysRemaining } from "@/components/ui";
+import { useAppData } from "@/components/app-provider";
+import { getReadiness } from "@/lib/readiness";
+import { matchesFor } from "@/lib/eligibility";
+
+export default function DashboardPage() {
+  const { data, activeUser, profile, resetDemo } = useAppData();
+  const firstName = activeUser?.displayName.split(" ")[0] ?? "there";
+  const readiness = getReadiness(data, profile);
+  const matches = profile ? matchesFor(data.scholarships, profile) : [];
+  const userEvidence = data.evidence.filter((item) => item.userId === activeUser?.id);
+  const userChecklists = data.checklists.filter((checklist) => checklist.userId === activeUser?.id);
+  const bestMatches = matches.filter((match) => match.status !== "not-eligible").slice(0, 3);
+  const upcoming = data.scholarships.map((scholarship) => ({ scholarship, days: daysRemaining(scholarship.deadline) })).filter((item) => item.days >= 0).sort((a, b) => a.days - b.days).slice(0, 4);
+  const openTasks = userChecklists.flatMap((checklist) => checklist.tasks.filter((task) => !task.done).map((task) => ({ task, checklist })) ).slice(0, 4);
+  return <>
+    <PageHeader eyebrow="YOUR SCHOLARSHIP SEASON" title={`Good to see you, ${firstName}.`} description="Small, focused steps add up. Here’s what’s moving in your scholarship workspace." action={<div className="filter-row"><button type="button" className="button-quiet" onClick={() => { if (window.confirm("Reset this browser’s workspace to the seeded Maya demo? Your local profile, evidence, and checklist changes will be replaced.")) resetDemo(); }}><RotateCcw size={13}/> Reset demo</button><Link href="/profile" className="button button-outline button-small">Update profile <ArrowUpRight size={14}/></Link></div>}/>
+    <section className="grid-4" aria-label="Workspace summary">
+      <article className="stat-card"><div className="stat-top"><span className="panel-label">Readiness score</span><span className="stat-icon"><Target size={16}/></span></div><div className="stat-value">{readiness.score}<span style={{ fontSize: 14, color: "#596a61" }}>/100</span></div><div className="stat-foot"><span>Profile · evidence · applications</span></div></article>
+      <article className="stat-card"><div className="stat-top"><span className="panel-label">Good-fit matches</span><span className="stat-icon blue"><Sparkles size={16}/></span></div><div className="stat-value">{matches.filter((match) => match.status === "qualified").length}</div><div className="stat-foot">Based on your saved profile</div></article>
+      <article className="stat-card"><div className="stat-top"><span className="panel-label">Evidence ready</span><span className="stat-icon lavender"><FileText size={16}/></span></div><div className="stat-value">{userEvidence.filter((item) => item.status === "ready").length}<span style={{ fontSize: 14, color: "#596a61" }}>/{userEvidence.length}</span></div><div className="stat-foot">Supporting items on file</div></article>
+      <article className="stat-card"><div className="stat-top"><span className="panel-label">Next deadline</span><span className="stat-icon amber"><CalendarClock size={16}/></span></div><div className="stat-value">{upcoming[0]?.days ?? "—"}<span style={{ fontSize: 14, color: "#596a61" }}> days</span></div><div className="stat-foot">{upcoming[0] ? formatDate(upcoming[0].scholarship.deadline) : "No upcoming dates"}</div></article>
+    </section>
+    <div className="grid-2" style={{ marginTop: 17, alignItems: "start" }}>
+      <section className="panel panel-pad"><div className="section-header"><div><h2 className="section-title">Your next best steps</h2><div className="section-caption">A practical path to feel more prepared</div></div><span className="chip chip-green"><Sparkles size={11}/> Today</span></div>
+        <div className="surface-soft" style={{ padding: 13, display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 4 }}><span className="stat-icon amber" style={{ width: 27, height: 27, flex: "none" }}><CircleAlert size={14}/></span><div><div style={{ color: "#40564a", fontWeight: 650, fontSize: 11 }}>{readiness.nextStep}</div><div style={{ color: "#596a61", fontSize: 9, marginTop: 3 }}>Your score is a planning signal—not a promise of an award.</div></div><Link aria-label="Go to your profile" href="/profile" className="icon-button" style={{ marginLeft: "auto" }}><ArrowRight size={15}/></Link></div>
+        <div style={{ marginTop: 17 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}><span className="text-small" style={{ color: "#596c60", fontWeight: 650 }}>Workspace readiness</span><span className="text-small" style={{ color: "#38694f", fontWeight: 700 }}>{readiness.score}%</span></div><div className="progress-track"><div className="progress-fill" style={{ width: `${readiness.score}%` }}/></div>
+          <div className="grid-3" style={{ gap: 9, marginTop: 12 }}>{[{ label: "Profile", score: readiness.profile }, { label: "Evidence", score: readiness.evidence }, { label: "Checklists", score: readiness.applications }].map(({ label, score }) => <div key={label}><div style={{ display: "flex", justifyContent: "space-between", color: "#596a61", fontSize: 9, marginBottom: 4 }}><span>{label}</span><span>{score}%</span></div><div className="progress-track" style={{ height: 4 }}><div className="progress-fill" style={{ width: `${score}%` }}/></div></div>)}</div>
+        </div>
+        <div style={{ marginTop: 16 }}>{openTasks.length === 0 ? <div className="empty-state" style={{ padding: 14 }}><CheckCircle2 size={18}/><div className="empty-title">No open checklist tasks yet.</div><Link href="/matches" className="button-quiet" style={{ fontSize: 10 }}>Choose an opportunity <ArrowRight size={13}/></Link></div> : openTasks.slice(0, 2).map(({ task, checklist }) => <div key={task.id} className="check-row"><span className="check-control" aria-hidden="true"/><div style={{ flex: 1 }}><div className="check-title">{task.title}</div><div className="check-description">{data.scholarships.find((item) => item.id === checklist.scholarshipId)?.title}</div></div><Link href="/checklist" className="icon-button" aria-label="Open application checklist"><ArrowRight size={14}/></Link></div>)}</div>
+      </section>
+      <section className="panel panel-pad"><div className="section-header"><div><h2 className="section-title">Closest-fit opportunities</h2><div className="section-caption">Ranked by fit and the deadline ahead</div></div><Link href="/matches" className="button-quiet" style={{ fontSize: 10 }}>View all <ArrowRight size={13}/></Link></div>
+        <div style={{ display: "grid", gap: 9 }}>{bestMatches.map(({ scholarship, status, score }) => <article key={scholarship.id} className="surface-soft" style={{ padding: 12 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}><div><div className="scholarship-title" style={{ fontSize: 13 }}>{scholarship.title}</div><div className="scholarship-sponsor">{scholarship.sponsor}</div></div><EligibilityBadge status={status}/></div><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}><span style={{ color: "#47685a", fontFamily: "Georgia,serif", fontSize: 15 }}>{formatMoney(scholarship.awardMin)}–{formatMoney(scholarship.awardMax)}</span><span className="text-small text-muted">{formatDate(scholarship.deadline)} · {score}% fit</span></div></article>)}</div>
+        <Link href="/matches" className="button button-outline button-small" style={{ width: "100%", marginTop: 12 }}>Explore all matches <ArrowRight size={14}/></Link>
+      </section>
+    </div>
+    <div className="grid-2" style={{ marginTop: 17, alignItems: "start" }}>
+      <section className="panel"><div className="panel-pad" style={{ paddingBottom: 7 }}><div className="section-header" style={{ marginBottom: 7 }}><div><h2 className="section-title">Upcoming deadlines</h2><div className="section-caption">Give yourself space to prepare</div></div><CalendarClock size={17} color="#5c8a70"/></div></div>
+        {upcoming.slice(0, 3).map(({ scholarship, days }) => <div key={scholarship.id} className="deadline-item"><div className="deadline-date"><strong>{new Date(`${scholarship.deadline}T12:00:00`).getDate()}</strong><span>{new Date(`${scholarship.deadline}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}</span></div><div><div className="deadline-name">{scholarship.title}</div><div className="deadline-meta">{formatMoney(scholarship.awardMin)}–{formatMoney(scholarship.awardMax)} · {scholarship.category}</div></div><span className="deadline-count">{days === 0 ? "Today" : `${days} days`}</span></div>)}
+        <div style={{ padding: "10px 14px" }}><Link href="/deadlines" className="button-quiet" style={{ fontSize: 10 }}>See all deadlines <ArrowRight size={13}/></Link></div>
+      </section>
+      <section className="panel panel-pad"><div className="section-header"><div><h2 className="section-title">Application momentum</h2><div className="section-caption">Small steps, saved in your browser</div></div><ClipboardCheck size={18} color="#688a70"/></div>
+        {userChecklists.slice(0, 2).map((checklist) => { const scholarship = data.scholarships.find((item) => item.id === checklist.scholarshipId); const done = checklist.tasks.filter((task) => task.done).length; return <div key={checklist.id} style={{ padding: "10px 0", borderBottom: "1px solid #eef1ee" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 7 }}><span className="text-small" style={{ color: "#43584d", fontWeight: 620 }}>{scholarship?.title}</span><span className="text-small text-muted">{done}/{checklist.tasks.length}</span></div><div className="progress-track" style={{ height: 4 }}><div className="progress-fill" style={{ width: `${done / checklist.tasks.length * 100}%` }}/></div></div>})}
+        <div style={{ paddingTop: 10 }}><Link href="/checklist" className="button-quiet" style={{ fontSize: 10 }}>Open application checklist <ArrowRight size={13}/></Link></div>
+      </section>
+    </div>
+    <div className="alert-note" style={{ marginTop: 16 }}><BookOpenCheck size={15}/><span>Demo listings are fictional examples. Always verify terms, deadlines, and eligibility with the official scholarship provider.</span></div>
+  </>;
+}
